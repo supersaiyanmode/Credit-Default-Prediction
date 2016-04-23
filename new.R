@@ -42,12 +42,34 @@ id3 <- function(node, features, responses) {
   }
 }
 
-dtree <- function(features, responses) {
+dtree_train <- function(features, responses) {
   node = Node$new("root")
   id3(node, features, as.vector(responses))
   return(node)
 }
-data("mushroom")
 
-res = dtree(mushroom[,1:3], mushroom[4])
+dtree_predict <- function(node, row) {
+  if (is.null(node$splitBy)) {
+    return(node$response)
+  }
+  return(dtree_predict(get(paste(node$splitBy,"=",get(node$splitBy, row)), node), row))
+}
+
+dtree_test <- function(node, features) {
+  res = c()
+  for (i in 1:nrow(features)) {
+    row = features[i,]
+    ret = dtree_predict(node, row)
+    res = c(res, ret)
+  }
+  return(res)
+}
+
+data("mushroom")
+mushroom = as.table(mushroom)
+model = dtree_train(mushroom[,1:3], mushroom[4])
+results = dtree_test(model, mushroom[,1:3])
 print(res, "splitBy", "response")
+cat("Results:\n")
+print(results)
+print(mushroom[4] - results)
