@@ -1,6 +1,6 @@
 library(data.tree)
 
-data = read.csv("credit.csv",header=TRUE,skip=1)
+data = read.csv("/home/rudrani/python-neural-network/backprop/credit.csv",header=TRUE,skip=1)
 
 entropy <- function(responses) {
   sum = 0
@@ -66,7 +66,8 @@ dtree_test <- function(node, features) {
 }
 
 data("mushroom")
-mushroom = as.table(mushroom)
+#mushroom = as.table(mushroom)
+View(mushroom)
 model = dtree_train(mushroom[,1:3], mushroom[4])
 results = dtree_test(model, mushroom[,1:3])
 print(res, "splitBy", "response")
