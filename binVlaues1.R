@@ -113,11 +113,9 @@ dtree_predict <- function(node, row) {
   if (is.null(node$splitBy)) {
     return(node$response)
   }
- # if (is.null(get(paste(node$splitBy,"=",get(node$splitBy, row)))))
-    #return(node$response)
+ 
   return(dtree_predict(get(paste(node$splitBy,"=",get(node$splitBy, row)), node), row))
-  #else
-   # return(dtree_predict(NULL, row))
+ 
     
 }
 
@@ -138,7 +136,7 @@ trainset=init(dataset)
 #View(trainset)
 model = dtree_train(trainset[,2:ncol(trainset)], as.matrix(trainset[,c(1)]))
 print(model, "splitBy", "response")
-results = dtree_test(model, as.matrix(trainset[,2:ncol(trainset)]))
-View(results)
-results=cbind(testset[,c(1)],results)
+results = dtree_test(model, trainset[,2:ncol(trainset)])
+View(results) 
+results=cbind(trainset[,c(1)],results)
 print(table(results[,1],results[,2]))
