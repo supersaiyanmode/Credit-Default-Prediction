@@ -1,10 +1,11 @@
 library(Hmisc)
 library(MASS)
 library(rpart)
+library(data.tree)
 
-init<-function(dataset){
+preprocess <- function(dataset){
   dataset <- subset(dataset, select = -c(1))
-# making buckets for the columns for Bill_Amt and Pay_Amt
+  # making buckets for the columns for Bill_Amt and Pay_Amt
   df <- subset(dataset, select = -c((2:4),(6:11)))
   for(i in 1:(ncol(df)-1))
   {
@@ -25,26 +26,8 @@ init<-function(dataset){
   trainset <- df[1:15000,]
   testset <- df[15001:30000,]
 
-# prediction for thr decision tree
-if(FALSE)
-{
- 
-  n <- names(df[,-c(1)])
-  f <- as.formula(paste("default~", paste(n[!n %in% "y"], collapse = " + ")))
-  creditTree <- rpart(f,data=trainset, method = 'class')
-  plot(creditTree)
-  text(creditTree, pretty=0)
-  p <- predict(creditTree,testset[,-c(1)],type="class")
-  View(table(p,testset[,c(1)]))
+  return(list(train=trainset, test=testset))
 }
-  return(trainset)
-
-}
-
-
-library(data.tree)
-
-data = read.csv("/home/rudrani/python-neural-network/backprop/credit.csv",header=TRUE,skip=1)
 
 entropy <- function(responses) {
   sum = 0
@@ -55,27 +38,29 @@ entropy <- function(responses) {
   return(sum)
 }
 
-id3 <- function(node, features, responses) {
-  
-  
+get_max_prob <- function(responses) {
+  if (nrow(as.matrix(responses[responses==1])) > nrow(as.matrix(responses[responses==0]))) {
+    return(1)
+  } else {
+    return(0)
+  }
+}
+
+id3 <- function(node, features, responses, cutoff) {
   if (length(unique(responses)) == 1) {
     node$splitBy = NULL
     node$response = responses[1]
     return()
   }
   
-  
-  if (node$depth >= 5) {
-    
+  if (node$depth >= cutoff) {
     node$splitBy = NULL
-    if (nrow(as.matrix(responses[responses==1])) > nrow(as.matrix(responses[responses==0]))) {
-      node$response = 1
-    } else {
-      node$response = 0
-    }
+    node$response = get_max_prob(responses)
     return()
   }
   
+  #set temporary responses in case we encounter new edge in testing phase
+  node$response = get_max_prob(responses)
   
   min_feature_entropy = 10e10
   min_feature_entropy_index = -1
@@ -97,15 +82,15 @@ id3 <- function(node, features, responses) {
     child$depth = node$depth + 1
     id3(child,
         features[features[min_feature_entropy_index]==unique_val, -c(min_feature_entropy_index)], 
-        responses[features[min_feature_entropy_index]==unique_val])
+        responses[features[min_feature_entropy_index]==unique_val],
+        cutoff)
   }
 }
 
-dtree_train <- function(features, responses) {
-  
+dtree_train <- function(features, responses, cutoff) {
   node = Node$new("root")
   node$depth = 0
-  id3(node, features, as.vector(responses))
+  id3(node, features, as.vector(responses), cutoff)
   return(node)
 }
 
@@ -113,10 +98,11 @@ dtree_predict <- function(node, row) {
   if (is.null(node$splitBy)) {
     return(node$response)
   }
- 
-  return(dtree_predict(get(paste(node$splitBy,"=",get(node$splitBy, row)), node), row))
- 
-    
+  if (exists(paste(node$splitBy,"=",get(node$splitBy, row)), node)) {
+    return(dtree_predict(get(paste(node$splitBy,"=",get(node$splitBy, row)), node), row))
+  } else {
+    return(node$response)
+  }
 }
 
 dtree_test <- function(node, features) {
@@ -129,14 +115,22 @@ dtree_test <- function(node, features) {
   return(res)
 }
 
-dataset <- read.csv("/home/rudrani/python-neural-network/backprop/credit.csv",header=TRUE,skip=1)
-trainset=init(dataset)
-#trainset=as.matrix(data[1])
-#testset=as.matrix(data[2])
-#View(trainset)
-model = dtree_train(trainset[,2:ncol(trainset)], as.matrix(trainset[,c(1)]))
-print(model, "splitBy", "response")
-results = dtree_test(model, trainset[,2:ncol(trainset)])
-View(results) 
-results=cbind(trainset[,c(1)],results)
-print(table(results[,1],results[,2]))
+train_test <- function(trainset, testset, cutoff) {
+  model = dtree_train(trainset[,2:ncol(trainset)], as.matrix(trainset[,c(1)]), cutoff)
+  #print(model, "splitBy", "response")
+  results = dtree_test(model, testset[,2:ncol(testset)])
+  #View(results)
+  results=cbind(testset[,c(1)],results)
+  ret = table(results[,1],results[,2])
+  return((ret[1,1]+ret[2,2])/(ret[1,1] + ret[1,2] + ret[2,1] + ret[2,2]))
+}
+
+dataset <- read.csv("credit.csv",header=TRUE,skip=1)
+ret = preprocess(dataset)
+trainset = ret$train
+testset = ret$test
+
+for (i in 1:15) {
+  accuracy = train_test(trainset, testset, i)
+  cat(paste("Accuracy with cutoff=", i, " is: ", accuracy, "\n"))
+}
