@@ -44,9 +44,11 @@ The dataset has continuous and categorical variables.There are 23 features in to
 
 \end{enumerate}
 
+\noindent The original data contains around 30,000 observations with around 24,000 samples of no-default and 6000 samples of default. We have sub-sampled this data to be around 12,000 samples with 6000 samples of each category.
+
 \section{Exploratory Analysis}
 
-The correlation matrix has been plotted between the continuous variables to see if any of the variables can be eliminated. The matrix is plotted in the R markdown file “Code.Rmd”  consisting of the code and the plots. It can be observed that the  continuous variables are not correlated with each other.  Monthly bill payments show some correlation with other monthly bill payments and monthly bill amounts show some correlation with other monthly bill amounts which is an expected result. But there is no correlation between monthly bill amounts and monthly bill payments and hence all the continuous features can be retained for further analysis.
+\noindent The correlation matrix has been plotted between the continuous variables to see if any of the variables can be eliminated. The matrix is plotted in the R markdown file “Code.Rmd”  consisting of the code and the plots. It can be observed that the  continuous variables are not correlated with each other.  Monthly bill payments show some correlation with other monthly bill payments and monthly bill amounts show some correlation with other monthly bill amounts which is an expected result. But there is no correlation between monthly bill amounts and monthly bill payments and hence all the continuous features can be retained for further analysis.
 
 \noindent For classification algorithms the normality assumption of the features is not mandatory hence we do not plot the Quantile-Quantile plots of the features. After some initial experiments, we decided to bucket the continuous features to make them categorical. We experimented with various number of bucket before we settled with 3 buckets for decision tree and 15 buckets for neural networks.
 
@@ -113,7 +115,7 @@ In this classifier, we need to fix the value of “K” ,the number of nearest n
 \end{enumerate}
 
 \section{Result}
-The accuracy for Decision Tree is $70.08 \%$
+\noindent The accuracy for Decision Tree is $70.08 \%$
 \begin{center}
 \begin{tabular}{ |p{3cm}|p{3cm}|p{3cm}|  }
 \hline
@@ -128,7 +130,7 @@ The accuracy for Decision Tree is $70.08 \%$
 \end{tabular}
 \end{center}
 
-The accuracy for 70-Nearest Neighbour is $59.41 \%$
+\noindent The accuracy for 70-Nearest Neighbour is $59.41 \%$
 
 
 \begin{center}
@@ -145,7 +147,7 @@ The accuracy for 70-Nearest Neighbour is $59.41 \%$
 \end{tabular}
 \end{center}
 
-The accuracy for Neural Network is $70.04 \%$ (with 10 nodes in hidden layer)
+\noindent The accuracy for Neural Network is $70.04 \%$ (with 10 nodes in hidden layer)
 
 \begin{center}
 \begin{tabular}{ |p{3cm}|p{3cm}|p{3cm}|  }
@@ -164,7 +166,12 @@ The accuracy for Neural Network is $70.04 \%$ (with 10 nodes in hidden layer)
 \section{Conclusion}
 \begin{enumerate}
 
-\item The classifiers incline towards using the feature $PAY_0$ because they think it closely relates to the final output. In our dataset description, this makes sense because $PAY_0$ relates to the most recent payment.
+\item The classifiers incline towards using the feature PAY\_0 because it closely relates to the final output. In our dataset description, this makes sense because PAY\_0 relates to the most recent payment.
+
+\item Neural Network and Decision Tree give the highest accuracy.
+
+\item The customers who default in past payments are more probable to default in future payments.
+
 
 \end{enumerate}
 
