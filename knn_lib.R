@@ -2,17 +2,6 @@ library(class)
 
 source('data.R')
 
-split_data <- function(data) {
-  pos = nrow(data) * 0.8
-  return(list(
-    train_features=data[1:pos, 2:(ncol(data)-1)],
-    train_responses=data[1:pos, ncol(data)],
-    test_features=data[(pos + 1):nrow(data), 2:(ncol(data)-1)],
-    test_responses=data[(pos + 1):nrow(data),ncol(data)]
-  ))
-}
-
-
 run_knn <- function(train_features, train_responses, test_features, test_responses, k) {
   result = knn(train_features, test_features, train_responses, k = k, prob = FALSE)
   t = table(result,test_responses)
