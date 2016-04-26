@@ -1,8 +1,41 @@
 library(class)
-data = read.csv("/home/rudrani/python-neural-network/backprop/credit.csv",header=TRUE,skip=1)
-train_features <- data[1:15000, 2:(ncol(data)-1)]
-train_responses <- data[1:15000, ncol(data)]
-test_features <- data[15001:30000, 2:(ncol(data)-1)]
-test_responses <- data[15001:30000,ncol(data)]
-val=knn(train_features, test_features, train_responses, k = 10, prob = FALSE)
-print(table(val,test_responses))
+
+source('data.R')
+
+split_data <- function(data) {
+  pos = nrow(data) * 0.8
+  return(list(
+    train_features=data[1:pos, 2:(ncol(data)-1)],
+    train_responses=data[1:pos, ncol(data)],
+    test_features=data[(pos + 1):nrow(data), 2:(ncol(data)-1)],
+    test_responses=data[(pos + 1):nrow(data),ncol(data)]
+  ))
+}
+
+
+run_knn <- function(train_features, train_responses, test_features, test_responses, k) {
+  result = knn(train_features, test_features, train_responses, k = k, prob = FALSE)
+  t = table(result,test_responses)
+  return(list(
+    confusion=t,
+    accuracy=(t[1,1] + t[2,2])/sum(t)
+  ))
+}
+
+plot_best_k <- function(train_features, train_responses, test_features, test_responses) {
+  all_k = seq(10,150,10)
+  accuracies = c()
+  for (k in all_k) {
+    res = run_knn(train_features, train_responses, test_features, test_responses, k)
+    accuracies = c(accuracies, res$accuracy)
+  }
+  plot(all_k, accuracies, type="l", xlab="K values", ylab="Accuracy", main="Plot of accuracy against 'K'")
+}
+
+dataset <- get_credit_dataset()
+data = split_data(dataset)
+#plot_best_k(data$train_features, data$train_responses, data$test_features, data$test_responses)
+
+result = run_knn(data$train_features, data$train_responses, data$test_features, data$test_responses, 70)
+print(result$confusion)
+print(result$accuracy)
