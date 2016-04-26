@@ -1,30 +1,8 @@
+source("data.R")
+
 set.seed(1234567890)
 library("neuralnet")
 require(neuralnet)
-dataset <- read.csv("/home/rudrani/python-neural-network/backprop/credit.csv",header=TRUE,skip=1)
-#new_data <- normalize_columns(dataset, c(13:18))
-#new_data <- normalize_columns(new_data, c(19:24))
-#trainset <- new_data[1:15000, 13:25]
-#testset <- new_data[15001:30000,13:25]
-result=preprocess(dataset)
-trainset=result$train
-testset=result$test
-n <- names(trainset[,-c(1)])
-f <- as.formula(paste("default ~", paste(n[!n %in% "y"], collapse = " + ")))
-credit <- neuralnet(f, trainset, hidden = 4, lifesign = "minimal", 
-                    linear.output = FALSE, threshold = 0.1)
-plot(credit, rep = "best")
-temp_test <- subset(testset, select = c(2:ncol(testset)))
-
-credit.results <- compute(credit, temp_test)
-results <- data.frame(actual = testset$default, prediction = credit.results$net.result)
-diff=sum(abs(results$actual-results$prediction))
-results$prediction <- round(results$prediction)
-View(results$prediction)
-View(results)
-print(table(results$actual,results$prediction))
-
-
 
 preprocess <- function(dataset){
   dataset <- subset(dataset, select = -c(1))
@@ -46,11 +24,10 @@ preprocess <- function(dataset){
   colnames(df)[1]=c("default")
   df2 <- subset(df, select = -c(1))
   names(df) <- sub(" ", ".", names(df))
-  trainset <- df[1:15000,]
-  testset <- df[15001:30000,]
   
-  return(list(train=trainset, test=testset))
+  return(split_data_row(df))
 }
+
 normalize_columns <- function(data, columns) {
   for (i in 1:nrow(data)) {
     s = sum(data[i, columns])
@@ -63,4 +40,46 @@ normalize_columns <- function(data, columns) {
   return(data)
 }
 
+run_nnet <- function(dataset, hidden, verbose=TRUE) {
+  result=preprocess(dataset)
+  trainset=result$train
+  testset=result$test
+  n <- names(trainset[,-c(1)])
+  f <- as.formula(paste("default ~", paste(n[!n %in% "y"], collapse = " + ")))
+  credit <- neuralnet(f, trainset, hidden = hidden, lifesign = "minimal", 
+                      linear.output = FALSE, threshold = 0.1)
+  if (verbose) {
+    plot(credit, rep = "best")
+  }
+  
+  temp_test <- subset(testset, select = c(2:ncol(testset)))
+  credit.results <- compute(credit, temp_test)
+  results <- data.frame(actual = testset$default, prediction = credit.results$net.result)
+  diff=sum(abs(results$actual-results$prediction))
+  results$prediction <- round(results$prediction)
+  tbl = table(results$actual,results$prediction)
+  
+  if (verbose) {
+    View(results$prediction)
+    View(results)
+    print(tbl)
+  }
+  return(list(
+    accuracy=(tbl[1,1] + tbl[2,2])/sum(tbl),
+    table=tbl
+  ))
+}
 
+plot_hidden_count <- function(dataset) {
+  all_hidden = c(4,7,9,11,15)
+  accuracies = c()
+  for (hidden in all_hidden) {
+    res = run_nnet(dataset, hidden, verbose = FALSE)
+    accuracies = c(accuracies, res$accuracy)
+  }
+  plot(all_hidden, accuracies, type="l")
+}
+
+dataset <- read.csv("credit.csv",header=TRUE,skip=1)
+plot_hidden_count(dataset)
+#run_nnet(dataset, 15)
