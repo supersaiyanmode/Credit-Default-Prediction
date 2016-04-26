@@ -1,32 +1,7 @@
-source("data.R")
-
 set.seed(1234567890)
+source("data.R")
 library("neuralnet")
 require(neuralnet)
-
-preprocess <- function(dataset){
-  dataset <- subset(dataset, select = -c(1))
-  # making buckets for the columns for Bill_Amt and Pay_Amt
-  df <- subset(dataset, select = -c((2:4),(6:11)))
-  for(i in 1:(ncol(df)-1))
-  {
-    str=paste(colnames(df)[i],"NEW")  
-    cat(paste0(str))
-    bins<-15
-    cutpoints<-unique(quantile(df[,i],(0:bins)/bins))
-    df[,str]<-NA
-    df[,str]=as.numeric(cut(df[,i],cutpoints,include.lowest=TRUE))
-  }
-  
-  df <- subset(df, select = -c(1:14))
-  df1<- subset(dataset, select = -c(1,5,(12:24)))
-  df=cbind(df,df1)
-  colnames(df)[1]=c("default")
-  df2 <- subset(df, select = -c(1))
-  names(df) <- sub(" ", ".", names(df))
-  
-  return(split_data_row(df))
-}
 
 normalize_columns <- function(data, columns) {
   for (i in 1:nrow(data)) {
@@ -40,8 +15,8 @@ normalize_columns <- function(data, columns) {
   return(data)
 }
 
-run_nnet <- function(dataset, hidden, verbose=TRUE) {
-  result=preprocess(dataset)
+run_nnet <- function(dataset, hidden, bucket_size, verbose=TRUE) {
+  result=preprocess(dataset, bucket_size)
   trainset=result$train
   testset=result$test
   n <- names(trainset[,-c(1)])
@@ -70,16 +45,27 @@ run_nnet <- function(dataset, hidden, verbose=TRUE) {
   ))
 }
 
-plot_hidden_count <- function(dataset) {
+plot_bucket_size_nnet <- function(dataset) {
+  all_buckets = c(3,6,10,15,20,30)
+  accuracies = c()
+  for (bucket_size in all_buckets) {
+    res = run_nnet(dataset, 5, bucket_size, verbose = FALSE)
+    accuracies = c(accuracies, res$accuracy)
+  }
+  plot(all_buckets, accuracies, type="l")
+}
+
+plot_hidden_count_nnet <- function(dataset) {
   all_hidden = c(4,7,9,11,15)
   accuracies = c()
   for (hidden in all_hidden) {
-    res = run_nnet(dataset, hidden, verbose = FALSE)
+    set.seed(1234567890)
+    res = run_nnet(dataset, hidden, 15, verbose = FALSE)
     accuracies = c(accuracies, res$accuracy)
   }
   plot(all_hidden, accuracies, type="l")
 }
 
-dataset <- read.csv("credit.csv",header=TRUE,skip=1)
-#plot_hidden_count(dataset)
-run_nnet(dataset, 15, verbose=TRUE)
+dataset <- get_credit_dataset()
+#plot_bucket_size_nnet(dataset)
+run_nnet(dataset, 10, 15, verbose=TRUE)
