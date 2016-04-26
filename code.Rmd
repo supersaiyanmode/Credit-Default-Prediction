@@ -1,28 +1,20 @@
 ---
-title: "Untitled"
-author: "Rudrani"
+title: "Credit Card Default Analysis"
+author: "Rudrani Angira, Srivatsan Iyer"
 date: "April 23, 2016"
 output: html_document
 ---
-```{r}
-
-```
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r }
-
 # Summary for  the feature vectors
 
-dataset <- read.csv("/home/rudrani/python-neural-network/backprop/credit.csv",header=TRUE,skip=1)
+
+```{r, cache=TRUE }
+
+dataset <- read.csv("credit.csv",header=TRUE,skip=1)
 summary(dataset)
 trainset <- dataset[1:15000, 2:25]
 testset <- dataset[15001:30000,2:25]
@@ -32,12 +24,11 @@ testset <- dataset[15001:30000,2:25]
 
 data=dataset[1:15000,13:24]
 cor(data[,1:12])
+```
 
+# Decision Tree Implementation
 
-
-```{r }
-#Decision Tree Implementation
-
+```{r, cache=TRUE }
 library(data.tree)
 
 source("data.R")
@@ -212,12 +203,7 @@ dataset <- get_credit_dataset()
 run_dtree(dataset)
 ```
 
-
-
-```
-
-
-
+# Neural Network
 
 ```{r , cache=TRUE}
 source("data.R")
@@ -307,4 +293,38 @@ dataset <- read.csv("credit.csv",header=TRUE,skip=1)
 run_nnet(dataset, 15, verbose=TRUE)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+#K nearest neighbors
+
+```{r}
+library(class)
+
+source('data.R')
+
+run_knn <- function(train_features, train_responses, test_features, test_responses, k) {
+  result = knn(train_features, test_features, train_responses, k = k, prob = FALSE)
+  t = table(result,test_responses)
+  return(list(
+    confusion=t,
+    accuracy=(t[1,1] + t[2,2])/sum(t)
+  ))
+}
+
+plot_best_k <- function(train_features, train_responses, test_features, test_responses) {
+  all_k = seq(10,150,10)
+  accuracies = c()
+  for (k in all_k) {
+    res = run_knn(train_features, train_responses, test_features, test_responses, k)
+    accuracies = c(accuracies, res$accuracy)
+  }
+  plot(all_k, accuracies, type="l", xlab="K values", ylab="Accuracy", main="Plot of accuracy against 'K'")
+}
+
+dataset <- get_credit_dataset()
+data = split_data(dataset)
+#plot_best_k(data$train_features, data$train_responses, data$test_features, data$test_responses)
+
+result = run_knn(data$train_features, data$train_responses, data$test_features, data$test_responses, 70)
+print(result$confusion)
+print(result$accuracy)
+
+```
