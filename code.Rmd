@@ -1,47 +1,52 @@
 ---
-title: "Untitled"
-author: "Rudrani"
+title: "Credit Card Default Analysis"
+author: "Rudrani Angira, Srivatsan Iyer"
 date: "April 23, 2016"
-output: html_document
+output: pdf_document
 ---
-```{r}
-
-```
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+# General Utility class (Data.R)
+```{r}
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r }
-
-# Summary for  the feature vectors
-
-dataset <- read.csv("/home/rudrani/python-neural-network/backprop/credit.csv",header=TRUE,skip=1)
-summary(dataset)
-trainset <- dataset[1:15000, 2:25]
-testset <- dataset[15001:30000,2:25]
-
-# Correlation between the continuous variables (BILL_AMT and PAY_AMT)
-# It can be viewed that the BILL_AMT columns are correlated with each other but there is # # no significant correlation between the the PAY_AMT and the BILL_AMT columns
-
-data=dataset[1:15000,13:24]
-cor(data[,1:12])
+get_credit_dataset <- function() {
+  dataset = read.csv("credit.csv",header=TRUE,skip=1)
+  ones = dataset[dataset$default.payment.next.month == 1,]
+  zeroes = dataset[dataset$default.payment.next.month == 0,]
+  
+  res = rbind(
+    ones[sample(nrow(ones), 6000),],
+    zeroes[sample(nrow(ones), 6000),]
+  )
+  return(res[sample(nrow(res)),])
+}
 
 
+split_data <- function(data) {
+  pos = nrow(data) * 0.8
+  return(list(
+    train_features=data[1:pos, 2:(ncol(data)-1)],
+    train_responses=data[1:pos, ncol(data)],
+    test_features=data[(pos + 1):nrow(data), 2:(ncol(data)-1)],
+    test_responses=data[(pos + 1):nrow(data),ncol(data)]
+  ))
+}
 
-```{r }
-#Decision Tree Implementation
+split_data_row <- function(data) {
+  return(list(
+    train=head(data, n=0.8*nrow(data)),
+    test=tail(data, n=0.2*nrow(data))
+  ))
+}
 
-library(data.tree)
+```
 
-source("data.R")
 
+# General Utility class (Preprocess.R)
+```{r}
 preprocess <- function(dataset, bucket_size){
   dataset <- subset(dataset, select = -c(1))
   # making buckets for the columns for Bill_Amt and Pay_Amt
@@ -55,7 +60,7 @@ preprocess <- function(dataset, bucket_size){
     df[,str]<-NA
     df[,str]=as.numeric(cut(df[,i],cutpoints,include.lowest=TRUE))
   }
-
+  
   df <- subset(df, select = -c(1:14))
   df1<- subset(dataset, select = -c(1,5,(12:24)))
   df=cbind(df,df1)
@@ -64,9 +69,72 @@ preprocess <- function(dataset, bucket_size){
   names(df) <- sub(" ", ".", names(df))
   trainset <- head(df, n=nrow(dataset)*0.8)
   testset <- tail(df, n=nrow(dataset)*0.2)
-
+  
   return(list(train=trainset, test=testset))
 }
+```
+# Summary for  the feature vectors
+
+
+```{r, cache=TRUE }
+
+dataset <- read.csv("credit.csv",header=TRUE,skip=1)
+summary(dataset)
+trainset <- dataset[1:15000, 2:25]
+testset <- dataset[15001:30000,2:25]
+
+# Correlation between the continuous variables (BILL_AMT and PAY_AMT)
+# It can be viewed that the BILL_AMT columns are correlated with each other but there is # # no significant correlation between the the PAY_AMT and the BILL_AMT columns
+
+data=dataset[1:15000,13:24]
+cor(data[,1:12])
+```
+
+#K Nearest Neighbors
+```{r, cache=TRUE}
+library(class)
+
+source('data.R')
+
+run_knn <- function(train_features, train_responses, test_features, test_responses, k) {
+  result = knn(train_features, test_features, train_responses, k = k, prob = FALSE)
+  t = table(result,test_responses)
+  return(list(
+    confusion=t,
+    accuracy=(t[1,1] + t[2,2])/sum(t)
+  ))
+}
+
+plot_best_k <- function(train_features, train_responses, test_features, test_responses) {
+  all_k = seq(10,150,10)
+  accuracies = c()
+  for (k in all_k) {
+    res = run_knn(train_features, train_responses, test_features, test_responses, k)
+    accuracies = c(accuracies, res$accuracy)
+  }
+  plot(all_k, accuracies, type="l", xlab="K values", ylab="Accuracy", main="Plot of accuracy against 'K'")
+}
+
+dataset <- get_credit_dataset()
+data = split_data(dataset)
+#plot_best_k(data$train_features, data$train_responses, data$test_features, data$test_responses)
+
+result = run_knn(data$train_features, data$train_responses, data$test_features, data$test_responses, 70)
+print(result$confusion)
+print(result$accuracy)
+
+```
+
+# Decision Tree Implementation
+
+```{r, cache=TRUE }
+library(Hmisc)
+library(MASS)
+library(rpart)
+library(data.tree)
+
+source("data.R")
+source("Preprocess.R")
 
 entropy <- function(responses) {
   sum = 0
@@ -212,12 +280,7 @@ dataset <- get_credit_dataset()
 run_dtree(dataset)
 ```
 
-
-
-```
-
-
-
+# Neural Network
 
 ```{r , cache=TRUE}
 source("data.R")
@@ -225,30 +288,6 @@ source("data.R")
 set.seed(1234567890)
 library("neuralnet")
 require(neuralnet)
-
-preprocess <- function(dataset){
-  dataset <- subset(dataset, select = -c(1))
-  # making buckets for the columns for Bill_Amt and Pay_Amt
-  df <- subset(dataset, select = -c((2:4),(6:11)))
-  for(i in 1:(ncol(df)-1))
-  {
-    str=paste(colnames(df)[i],"NEW")  
-    cat(paste0(str))
-    bins<-15
-    cutpoints<-unique(quantile(df[,i],(0:bins)/bins))
-    df[,str]<-NA
-    df[,str]=as.numeric(cut(df[,i],cutpoints,include.lowest=TRUE))
-  }
-  
-  df <- subset(df, select = -c(1:14))
-  df1<- subset(dataset, select = -c(1,5,(12:24)))
-  df=cbind(df,df1)
-  colnames(df)[1]=c("default")
-  df2 <- subset(df, select = -c(1))
-  names(df) <- sub(" ", ".", names(df))
-  
-  return(split_data_row(df))
-}
 
 normalize_columns <- function(data, columns) {
   for (i in 1:nrow(data)) {
@@ -262,8 +301,8 @@ normalize_columns <- function(data, columns) {
   return(data)
 }
 
-run_nnet <- function(dataset, hidden, verbose=TRUE) {
-  result=preprocess(dataset)
+run_nnet <- function(dataset, hidden, bucket_size, verbose=TRUE) {
+  result=preprocess(dataset, bucket_size)
   trainset=result$train
   testset=result$test
   n <- names(trainset[,-c(1)])
@@ -292,19 +331,29 @@ run_nnet <- function(dataset, hidden, verbose=TRUE) {
   ))
 }
 
-plot_hidden_count <- function(dataset) {
+plot_bucket_size_nnet <- function(dataset) {
+  all_buckets = seq(3,15,3)
+  accuracies = c()
+  for (bucket_size in all_buckets) {
+    res = run_nnet(dataset, 5, bucket_size, verbose = FALSE)
+    accuracies = c(accuracies, res$accuracy)
+  }
+  plot(all_bucket, accuracies, type="l")
+}
+
+plot_hidden_count_nnet <- function(dataset) {
   all_hidden = c(4,7,9,11,15)
   accuracies = c()
   for (hidden in all_hidden) {
-    res = run_nnet(dataset, hidden, verbose = FALSE)
+    res = run_nnet(dataset, hidden, 15, verbose = FALSE)
     accuracies = c(accuracies, res$accuracy)
   }
   plot(all_hidden, accuracies, type="l")
 }
 
-dataset <- read.csv("credit.csv",header=TRUE,skip=1)
-#plot_hidden_count(dataset)
-run_nnet(dataset, 15, verbose=TRUE)
-```
+dataset <- get_credit_dataset()
+#plot_hidden_count_nnet(dataset)
+#plot_bucket_size_nnet(dataset)
+run_nnet(dataset, 10, 15, verbose=TRUE)
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```
