@@ -81,5 +81,5 @@ plot_hidden_count <- function(dataset) {
 }
 
 dataset <- read.csv("credit.csv",header=TRUE,skip=1)
-plot_hidden_count(dataset)
-#run_nnet(dataset, 15)
+#plot_hidden_count(dataset)
+run_nnet(dataset, 15, verbose=TRUE)
