@@ -1,4 +1,4 @@
-data = read.csv("/home/rudrani/python-neural-network/backprop/credit.csv",header=TRUE,skip=1)
+data = read.csv("credit.csv",header=TRUE,skip=1)
 train_features <- data[1:29900, 2:(ncol(data)-1)]
 train_responses <- data[1:29900, ncol(data)]
 test_features <- data[29901:30000, 2:(ncol(data)-1)]
