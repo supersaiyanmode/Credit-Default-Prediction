@@ -1,0 +1,137 @@
+%% It is just an empty TeX file.
+%% Write your code here.
+
+\documentclass{article}
+\usepackage{blindtext}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=0.5in]{geometry}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{enumitem}
+
+\graphicspath{ {images/} }
+ 
+\title{Machine Leraning Project: Credit Card default Classification}
+\author{Rudrani Angira and Srivatsan Iyer}
+\date{\today}
+
+ 
+\begin{document}
+ 
+\maketitle
+ 
+\section{Data and Literature Review}
+ 
+
+
+ The dataset has the financial indicators for the customers from Taiwan and the goal is to predict the probability of default based on the given financial and demographic indicators. The common data mining methods studied for credit scoring in literature  have been derived from the classification techniques which employs a classifier to divide the data into categories based on some variables.In this report we analyze the three classification mechanisms namely decision trees, K-nearest neighbours and Artificial neural networks as we need to classify the data into two classes .In Analysis section we compare the results obtained from the three algorithms. 
+
+\section{Dataset Description}
+
+ 
+The dataset has continuous and categorical variables.There are 23 features in total.Below is the description of the variables 
+\begin{enumerate}[leftmargin=2cm,rightmargin=2cm]
+\item Limit Balance: Amount of the given credit (NT dollar): it includes both the individual consumer credit and his/her family (supplementary) credit.
+\item Gender: (1 = male; 2 = female).
+\item Education:  (1 = graduate school; 2 = university; 3 = high school; 4 = others).
+\item Marital status:  (1 = married; 2 = single; 3 = others). 
+\item Age: Age (year).
+\item PAY\_0 - PAY\_6:  History of past payment. We tracked the past monthly payment records (from April to September, 2005) as follows: PAY\_0 $=$ the repayment status in September, 2005; PAY\_2 $=$ the repayment status in August, 2005; \ldots;PAY\_6 $=$ the repayment status in April, 2005. The measurement scale for the repayment status is: -1 $=$ pay duly; 1 $=$ payment delay for one month; 2 $=$ payment delay for two months;\ldots; 8 $=$ payment delay for eight months; 9 $=$ payment delay for nine months and above.
+\item BILL\_AMT1-BILL\_AMT6: Amount of bill statement (NT dollar). BILL\_AMT1 = amount of bill statement in September, 2005; BILL\_AMT2 = amount of bill statement in August, 2005;\ldots; BILL\_AMT6 = amount of bill statement in April, 2005.
+ \item PAY\_AMT0-PAY\_AMT6: Amount of previous payment (NT dollar).PAY\_AMT0$=$ amount paid in September, 2005,PAY\_AMT1 $=$ amount paid in August, 2005;\ldots;PAY\_AMT6$=$ amount paid in April, 2005.
+\item default.payment.next.month: 1 if the person defaulted in the next month. 0 otherwise.
+
+\end{enumerate}
+
+\section{Exploratory Analysis}
+
+The correlation matrix has been plotted between the continuous variables to see if any of the variables can be eliminated. The matrix is plotted in the R markdown file “CreditCard.rmd”  consisting the code and the plots. It can be observed that the  continuous variables are not correlated to each other.  Monthly bill payments show some correlation with other monthly bill payments and monthly bill amounts show some correlation with other monthly bill amounts which is an expected result. But there is no correlation between monthly bill amounts and monthly bill payments and hence all the continuous features can be retained for further analysis.
+
+\noindent For classification algorithms the normality assumption of the features is not mandatory hence we do not plot the Quantile-Quantile plots of the features. After some initial experiments with neural network and decision tree we decided to form the buckets for the continuous features in order to make them categorical as part of data pre-processing as the decision tree algorithm was splitting on large number of values for an attribute. To achieve that, the number of bins/buckets considered was 15. The feature values were divided into 15 quantiles and each quantile was mapped to the one discrete value ranging from 1 to 15.
+
+
+
+
+\section{Implementation}
+ 
+In this section we briefly explain the algorithms used for the analysis. 
+
+\begin{enumerate}
+
+\item K-nearest Neighbours: It does not require any predictive model prior classifying the observations. The algorithm searches the training data space for nearest neighbours and classifies the new observation in the most frequent class of its K closest observations which is calculated based on a distance metric. In our implementation we have used Euclidean distance.
+
+\item Decision Trees:  From the given dataset, we tried to find if a sequential set of decisions can help us predict if a person would default. ID3 Decision Tree classification  algorithm fits in perfectly. In the algorithm, our main goal is to create the tree of decisions. Each node in the tree corresponds to a feature vector. Every outward edge represents one unique value of the feature. Once the tree is generated, we simply follow along the tree, taking decisions at every node and following the edge that represents the unique value from our test data. The process create the decision tree relies on calculating minimum entropy or maximum information gain.
+
+\item Neural Network : It is a non-linear statistical method which can work on any kind of dataset. It basically establishes the mathematical relationship between the inputs (feature vectors) and outputs ( response variable) and minimizes the error through the back propagation. The weights are updated at every iteration and the errors are recalculated till the error rate converges. The training process builds a probabilistic mapping between the input features and classes and based on this model the neural network predicts the probability of the new observation belonging to each class. In our implementation there  are four hidden layers .Below is the equation model for the neural network.
+\begin{equation}
+ \[net_h_i=\sum_{i=1}^{n} w_i*input_i\] 
+\end{equation}
+where, $net_h_i$ is the value on a neuron in hidden layer. The output of every neuron $out_h_i$ in the hidden layer will be 
+\[out_h_i=\frac{1}{1 + e^{-net_h_i}}\]
+The input for the neuron in the next layer $o_i$
+ \[net_o_j=\sum_{j=1}^{m} w_j*net_h_j\] 
+ and the output will be 
+ \[out_o_j=\frac{1}{1 + e^{-net_o_j}}\] , the total error is calclated $E_{total}=$
+ back propagation is done to update the weights 
+ \[{w_k^'}=w_k-\eta*\frac{\partial{E_{total}}}{\partial{w_k}}\]
+
+\end{enumerate}
+
+\section{Fixing Parameters}
+
+As in any other prediction process, we have had our share of experiments to arrive at a set of parameters that perform the best. The section below relates to experiments we have performed on tweaking the parameters of classifiers we have used.
+
+\begin{enumerate}
+\item Decision Tree\\
+The ID3 algorithm requires the data to be categorical. Some of the features are real valued data. In order to bucket them as categorical data, we have to define the number of buckets. We fixed “cut-off” size to be 5, varied the number of buckets on the data and evaluated the accuracy. We got a plot that looks like below:
+
+\begin{figure}[h]
+      \centering
+    \includegraphics[width=0.8\textwidth,height=0.4\textheight,keepaspectratio]{DecisionTreeBucketSize}
+    \caption{Decision Tree Bucket Size}
+\end{figure}
+
+
+
+From \textbf{Figure 1}, we observe that the accuracy peaks when there are 5 buckets. We have used this for further experiments.Next, we conducted another set of experiments to arrive at an optimal cut-off. This number represents the maximum depth of the decision tree. We cut off the tree and do not let the algorithm fully create the tree to prevent over-fitting. Below is the plot of overall accuracy v/s the cut-off.
+\begin{figure}[h]
+      \centering
+    \includegraphics[width=0.8\textwidth,height=0.4\textheight,keepaspectratio]{DTreeCutoff}
+    \caption{Decision Tree Cut Off}
+\end{figure}
+Clearly, the graph in \textbf{Figure 2} exhibits the typical characteristics of overfitting. As we let the ID3 algorithm classify deeper nodes, the overall accuracy falls down. We have settled on cutoff$=$3
+
+
+\item Nearest Neighbors\\
+In this classifier, we need to fix the value of “K” ,the number of nearest neighbors to consider. We present below the plot of values of accuracy v/s “K”.
+
+\end{enumerate}
+
+
+\section{Conclusion}
+\begin{enumerate}
+
+\item The classifiers incline towards using the feature “PAY0” because they think it closely relates to the final output. In our dataset description, this makes sense because PAY0 relates to the most recent payment.
+
+\end{enumerate}
+\begin{figure}[h]
+\begin{subfigure}{.5\textwidth}
+  \centering
+ \includegraphics[width=0.4\textwidth,height=0.4\textheight,keepaspectratio]{pastedimage0ClassificationofNodefault}
+  \caption{Classification of No default}
+  \label{fig:sfig1}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=0.4\textwidth,height=0.4\textheight,keepaspectratio]{DTreeCutoff}
+  \caption{Decision tree cut off}
+  \label{fig:sfig2}
+\end{subfigure}
+\caption{plots for decision trees }
+\label{fig:fig}
+\end{figure}
+
+
+
+\end{document}
+
