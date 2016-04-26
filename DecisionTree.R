@@ -3,7 +3,9 @@ library(MASS)
 library(rpart)
 library(data.tree)
 
-preprocess <- function(dataset){
+source("data.R")
+
+preprocess <- function(dataset, bucket_size){
   dataset <- subset(dataset, select = -c(1))
   # making buckets for the columns for Bill_Amt and Pay_Amt
   df <- subset(dataset, select = -c((2:4),(6:11)))
@@ -11,7 +13,7 @@ preprocess <- function(dataset){
   {
     str=paste(colnames(df)[i],"NEW")  
     cat(paste0(str))
-    bins<-15
+    bins<-bucket_size
     cutpoints<-unique(quantile(df[,i],(0:bins)/bins))
     df[,str]<-NA
     df[,str]=as.numeric(cut(df[,i],cutpoints,include.lowest=TRUE))
@@ -23,8 +25,8 @@ preprocess <- function(dataset){
   colnames(df)[1]=c("default")
   df2 <- subset(df, select = -c(1))
   names(df) <- sub(" ", ".", names(df))
-  trainset <- df[1:15000,]
-  testset <- df[15001:30000,]
+  trainset <- head(df, n=nrow(dataset)*0.8)
+  testset <- tail(df, n=nrow(dataset)*0.2)
 
   return(list(train=trainset, test=testset))
 }
@@ -115,22 +117,59 @@ dtree_test <- function(node, features) {
   return(res)
 }
 
-train_test <- function(trainset, testset, cutoff) {
+train_test <- function(trainset, testset, cutoff, verbose=FALSE) {
   model = dtree_train(trainset[,2:ncol(trainset)], as.matrix(trainset[,c(1)]), cutoff)
-  #print(model, "splitBy", "response")
+  if (verbose) {
+    print(model, "splitBy", "response")
+  }
   results = dtree_test(model, testset[,2:ncol(testset)])
   #View(results)
   results=cbind(testset[,c(1)],results)
   ret = table(results[,1],results[,2])
-  return((ret[1,1]+ret[2,2])/(ret[1,1] + ret[1,2] + ret[2,1] + ret[2,2]))
+  if (verbose) {
+    print(ret)
+  }
+  accuracy = (ret[1,1]+ret[2,2])/(ret[1,1] + ret[1,2] + ret[2,1] + ret[2,2])
+  return(list(tn=ret[1,1], tp=ret[2,2], accuracy=accuracy))
 }
 
-dataset <- read.csv("credit.csv",header=TRUE,skip=1)
-ret = preprocess(dataset)
-trainset = ret$train
-testset = ret$test
-
-for (i in 1:15) {
-  accuracy = train_test(trainset, testset, i)
-  cat(paste("Accuracy with cutoff=", i, " is: ", accuracy, "\n"))
+plot_bucket_size <- function(dataset) {
+  result = c()
+  bucket_sizes = c(seq(1,10), seq(12, 21, 3))
+  for (i in bucket_sizes) {
+    ret = preprocess(dataset, i)
+    trainset = ret$train
+    testset = ret$test
+    res = train_test(trainset, testset, 4)
+    cat(paste("Accuracy with bucket_size=, ", i, " is: ", res$accuracy, "\n"))
+    result = c(result, res)
+  }
+  plot(bucket_sizes, result[seq(3, length(result), 3)], type="l", ylab="Overall Accuracy", xlab="Decision tree Bucket size")
 }
+
+plot_cutoff <- function(dataset) {
+  result = c()
+  cut_offs = seq(1,15)
+  for (cutoff in cut_offs) {
+    ret = preprocess(dataset, 5)
+    trainset = ret$train
+    testset = ret$test
+    res = train_test(trainset, testset, cutoff)
+    cat(paste("Accuracy with cut_off= ", cutoff, " is: ", res$accuracy, "\n"))
+    result = c(result, res)
+  }
+  plot(cut_offs, result[seq(3, length(result), 3)], type="l", ylab="Overall Accuracy", xlab="Decision tree Cut Off")
+}
+
+run_dtree <- function(dataset) {
+  ret = preprocess(dataset, 5)
+  trainset = ret$train
+  testset = ret$test
+  res = train_test(trainset, testset, 3, verbose=TRUE)
+  cat(paste("Accuracy: ", res$accuracy, "\n"))
+}
+
+dataset <- get_credit_dataset()
+#plot_bucket_size(dataset)
+#plot_cutoff(dataset)
+run_dtree(dataset)
