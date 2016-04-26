@@ -1,0 +1,310 @@
+---
+title: "Untitled"
+author: "Rudrani"
+date: "April 23, 2016"
+output: html_document
+---
+```{r}
+
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r }
+
+# Summary for  the feature vectors
+
+dataset <- read.csv("/home/rudrani/python-neural-network/backprop/credit.csv",header=TRUE,skip=1)
+summary(dataset)
+trainset <- dataset[1:15000, 2:25]
+testset <- dataset[15001:30000,2:25]
+
+# Correlation between the continuous variables (BILL_AMT and PAY_AMT)
+# It can be viewed that the BILL_AMT columns are correlated with each other but there is # # no significant correlation between the the PAY_AMT and the BILL_AMT columns
+
+data=dataset[1:15000,13:24]
+cor(data[,1:12])
+
+
+
+```{r }
+#Decision Tree Implementation
+
+library(data.tree)
+
+source("data.R")
+
+preprocess <- function(dataset, bucket_size){
+  dataset <- subset(dataset, select = -c(1))
+  # making buckets for the columns for Bill_Amt and Pay_Amt
+  df <- subset(dataset, select = -c((2:4),(6:11)))
+  for(i in 1:(ncol(df)-1))
+  {
+    str=paste(colnames(df)[i],"NEW")  
+    cat(paste0(str))
+    bins<-bucket_size
+    cutpoints<-unique(quantile(df[,i],(0:bins)/bins))
+    df[,str]<-NA
+    df[,str]=as.numeric(cut(df[,i],cutpoints,include.lowest=TRUE))
+  }
+
+  df <- subset(df, select = -c(1:14))
+  df1<- subset(dataset, select = -c(1,5,(12:24)))
+  df=cbind(df,df1)
+  colnames(df)[1]=c("default")
+  df2 <- subset(df, select = -c(1))
+  names(df) <- sub(" ", ".", names(df))
+  trainset <- head(df, n=nrow(dataset)*0.8)
+  testset <- tail(df, n=nrow(dataset)*0.2)
+
+  return(list(train=trainset, test=testset))
+}
+
+entropy <- function(responses) {
+  sum = 0
+  for (unique_val in unique(responses)) {
+    prob = length(responses[responses==unique_val]) / length(responses)
+    sum = sum - (prob * log(prob))
+  }
+  return(sum)
+}
+
+get_max_prob <- function(responses) {
+  if (nrow(as.matrix(responses[responses==1])) > nrow(as.matrix(responses[responses==0]))) {
+    return(1)
+  } else {
+    return(0)
+  }
+}
+
+id3 <- function(node, features, responses, cutoff) {
+  if (length(unique(responses)) == 1) {
+    node$splitBy = NULL
+    node$response = responses[1]
+    return()
+  }
+  
+  if (node$depth >= cutoff) {
+    node$splitBy = NULL
+    node$response = get_max_prob(responses)
+    return()
+  }
+  
+  #set temporary responses in case we encounter new edge in testing phase
+  node$response = get_max_prob(responses)
+  
+  min_feature_entropy = 10e10
+  min_feature_entropy_index = -1
+  for (feature_index in 1:ncol(features)) {
+    sum_entropy = 0
+    for (unique_val in unique(features[,feature_index])) {
+      subset = responses[features[,feature_index] == unique_val]
+      sum_entropy = sum_entropy + length(subset) / nrow(features) * entropy(subset)
+    }
+    if (min_feature_entropy > sum_entropy) {
+      min_feature_entropy =  sum_entropy
+      min_feature_entropy_index = feature_index
+    }
+  }
+  
+  node$splitBy = colnames(features)[min_feature_entropy_index]
+  for (unique_val in unique(features[,min_feature_entropy_index])) {
+    child = node$AddChild(as.character(paste(colnames(features)[min_feature_entropy_index],"=",unique_val)))
+    child$depth = node$depth + 1
+    id3(child,
+        features[features[min_feature_entropy_index]==unique_val, -c(min_feature_entropy_index)], 
+        responses[features[min_feature_entropy_index]==unique_val],
+        cutoff)
+  }
+}
+
+dtree_train <- function(features, responses, cutoff) {
+  node = Node$new("root")
+  node$depth = 0
+  id3(node, features, as.vector(responses), cutoff)
+  return(node)
+}
+
+dtree_predict <- function(node, row) {
+  if (is.null(node$splitBy)) {
+    return(node$response)
+  }
+  if (exists(paste(node$splitBy,"=",get(node$splitBy, row)), node)) {
+    return(dtree_predict(get(paste(node$splitBy,"=",get(node$splitBy, row)), node), row))
+  } else {
+    return(node$response)
+  }
+}
+
+dtree_test <- function(node, features) {
+  res = c()
+  for (i in 1:nrow(features)) {
+    row = features[i,]
+    ret = dtree_predict(node, row)
+    res = c(res, ret)
+  }
+  return(res)
+}
+
+train_test <- function(trainset, testset, cutoff, verbose=FALSE) {
+  model = dtree_train(trainset[,2:ncol(trainset)], as.matrix(trainset[,c(1)]), cutoff)
+  if (verbose) {
+    print(model, "splitBy", "response")
+  }
+  results = dtree_test(model, testset[,2:ncol(testset)])
+  #View(results)
+  results=cbind(testset[,c(1)],results)
+  ret = table(results[,1],results[,2])
+  if (verbose) {
+    print(ret)
+  }
+  accuracy = (ret[1,1]+ret[2,2])/(ret[1,1] + ret[1,2] + ret[2,1] + ret[2,2])
+  return(list(tn=ret[1,1], tp=ret[2,2], accuracy=accuracy))
+}
+
+plot_bucket_size <- function(dataset) {
+  result = c()
+  bucket_sizes = c(seq(1,10), seq(12, 21, 3))
+  for (i in bucket_sizes) {
+    ret = preprocess(dataset, i)
+    trainset = ret$train
+    testset = ret$test
+    res = train_test(trainset, testset, 4)
+    cat(paste("Accuracy with bucket_size=, ", i, " is: ", res$accuracy, "\n"))
+    result = c(result, res)
+  }
+  plot(bucket_sizes, result[seq(3, length(result), 3)], type="l", ylab="Overall Accuracy", xlab="Decision tree Bucket size")
+}
+
+plot_cutoff <- function(dataset) {
+  result = c()
+  cut_offs = seq(1,15)
+  for (cutoff in cut_offs) {
+    ret = preprocess(dataset, 5)
+    trainset = ret$train
+    testset = ret$test
+    res = train_test(trainset, testset, cutoff)
+    cat(paste("Accuracy with cut_off= ", cutoff, " is: ", res$accuracy, "\n"))
+    result = c(result, res)
+  }
+  plot(cut_offs, result[seq(3, length(result), 3)], type="l", ylab="Overall Accuracy", xlab="Decision tree Cut Off")
+}
+
+run_dtree <- function(dataset) {
+  ret = preprocess(dataset, 5)
+  trainset = ret$train
+  testset = ret$test
+  res = train_test(trainset, testset, 3, verbose=TRUE)
+  cat(paste("Accuracy: ", res$accuracy, "\n"))
+}
+
+dataset <- get_credit_dataset()
+#plot_bucket_size(dataset)
+#plot_cutoff(dataset)
+run_dtree(dataset)
+```
+
+
+
+```
+
+
+
+
+```{r , cache=TRUE}
+source("data.R")
+
+set.seed(1234567890)
+library("neuralnet")
+require(neuralnet)
+
+preprocess <- function(dataset){
+  dataset <- subset(dataset, select = -c(1))
+  # making buckets for the columns for Bill_Amt and Pay_Amt
+  df <- subset(dataset, select = -c((2:4),(6:11)))
+  for(i in 1:(ncol(df)-1))
+  {
+    str=paste(colnames(df)[i],"NEW")  
+    cat(paste0(str))
+    bins<-15
+    cutpoints<-unique(quantile(df[,i],(0:bins)/bins))
+    df[,str]<-NA
+    df[,str]=as.numeric(cut(df[,i],cutpoints,include.lowest=TRUE))
+  }
+  
+  df <- subset(df, select = -c(1:14))
+  df1<- subset(dataset, select = -c(1,5,(12:24)))
+  df=cbind(df,df1)
+  colnames(df)[1]=c("default")
+  df2 <- subset(df, select = -c(1))
+  names(df) <- sub(" ", ".", names(df))
+  
+  return(split_data_row(df))
+}
+
+normalize_columns <- function(data, columns) {
+  for (i in 1:nrow(data)) {
+    s = sum(data[i, columns])
+    if (s == 0) {
+      data[i, columns] = 0
+    } else {
+      data[i, columns] = data[i, columns] / s
+    }
+  }
+  return(data)
+}
+
+run_nnet <- function(dataset, hidden, verbose=TRUE) {
+  result=preprocess(dataset)
+  trainset=result$train
+  testset=result$test
+  n <- names(trainset[,-c(1)])
+  f <- as.formula(paste("default ~", paste(n[!n %in% "y"], collapse = " + ")))
+  credit <- neuralnet(f, trainset, hidden = hidden, lifesign = "minimal", 
+                      linear.output = FALSE, threshold = 0.1)
+  if (verbose) {
+    plot(credit, rep = "best")
+  }
+  
+  temp_test <- subset(testset, select = c(2:ncol(testset)))
+  credit.results <- compute(credit, temp_test)
+  results <- data.frame(actual = testset$default, prediction = credit.results$net.result)
+  diff=sum(abs(results$actual-results$prediction))
+  results$prediction <- round(results$prediction)
+  tbl = table(results$actual,results$prediction)
+  
+  if (verbose) {
+    View(results$prediction)
+    View(results)
+    print(tbl)
+  }
+  return(list(
+    accuracy=(tbl[1,1] + tbl[2,2])/sum(tbl),
+    table=tbl
+  ))
+}
+
+plot_hidden_count <- function(dataset) {
+  all_hidden = c(4,7,9,11,15)
+  accuracies = c()
+  for (hidden in all_hidden) {
+    res = run_nnet(dataset, hidden, verbose = FALSE)
+    accuracies = c(accuracies, res$accuracy)
+  }
+  plot(all_hidden, accuracies, type="l")
+}
+
+dataset <- read.csv("credit.csv",header=TRUE,skip=1)
+#plot_hidden_count(dataset)
+run_nnet(dataset, 15, verbose=TRUE)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
